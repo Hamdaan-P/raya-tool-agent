@@ -83,7 +83,9 @@ calculate_zakat_declaration = types.FunctionDeclaration(
     description=(
         "Calculate Zakat owed on cash, gold and silver using live metal "
         "prices and the nisab threshold. Returns amount owed, or zero if "
-        "wealth is below nisab."
+        "wealth is below nisab. The user must explicitly state which nisab "
+        "standard (gold or silver) to use — if they have not stated one, do "
+        "NOT call this tool yet; ask the user to choose gold or silver first."
     ),
     parameters=types.Schema(
         type=types.Type.OBJECT,
@@ -110,7 +112,10 @@ calculate_zakat_declaration = types.FunctionDeclaration(
                 type=types.Type.STRING,
                 enum=["gold", "silver"],
                 description=(
-                    "Which nisab threshold to use. This is the user's choice."
+                    "Which nisab threshold to use — 'gold' or 'silver'. This "
+                    "is the user's explicit choice, never assume it. If the "
+                    "user has not stated a standard, do NOT call this tool "
+                    "yet — ask them to choose gold or silver first."
                 ),
             ),
         },
