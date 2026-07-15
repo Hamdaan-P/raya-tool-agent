@@ -140,11 +140,11 @@ get_quran_verse_declaration = types.FunctionDeclaration(
         type=types.Type.OBJECT,
         properties={
             "surah": types.Schema(
-                type=types.Type.NUMBER,
+                type=types.Type.INTEGER,
                 description="Surah number, 1 to 114.",
             ),
             "ayah": types.Schema(
-                type=types.Type.NUMBER,
+                type=types.Type.INTEGER,
                 description="Ayah number within the surah.",
             ),
             # Named "translation_edition" (not "edition") to match the real
@@ -179,7 +179,7 @@ get_hadith_declaration = types.FunctionDeclaration(
                 description="Hadith collection name.",
             ),
             "number": types.Schema(
-                type=types.Type.NUMBER,
+                type=types.Type.INTEGER,
                 description="Hadith number within the collection.",
             ),
             "language": types.Schema(

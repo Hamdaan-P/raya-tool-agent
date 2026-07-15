@@ -51,20 +51,22 @@ def run_tool(name, args):
     """
     Look up `name` in TOOL_FUNCTIONS and call it with `args` unpacked as
     keyword arguments. Never raises — unknown tools and unexpected errors
-    are both returned as {"status": "error", "message": ...} instead.
+    are both returned as {"success": False, "error": ...} instead.
     """
     print(f"[TOOL CALL] {name}")
     print(f"[ARGS] {args}")
 
+    # One consistent failure shape so the model reasons over a single
+    # contract, matching the shape the tools themselves already return.
     if name not in TOOL_FUNCTIONS:
-        result = {"status": "error", "message": f"Unknown tool: {name}"}
+        result = {"success": False, "error": f"Unknown tool: {name}"}
         print(f"[RESULT] {result}")
         return result
 
     try:
         result = TOOL_FUNCTIONS[name](**args)
     except Exception as e:
-        result = {"status": "error", "message": str(e)}
+        result = {"success": False, "error": str(e)}
 
     print(f"[RESULT] {result}")
     return result
@@ -72,6 +74,9 @@ def run_tool(name, args):
 
 # Maximum plan-act-observe rounds before giving up on a question.
 MAX_ITERATIONS = 10
+
+# Model ID is verified live in Session 2; known-good fallback is gemini-2.5-flash (review finding 4).
+MODEL_ID = "gemini-3.5-flash"
 
 
 def run_agent(question, history=None):
@@ -116,29 +121,41 @@ def run_agent(question, history=None):
         print(f"[ROUND {round_number}]")
 
         response = client.models.generate_content(
-            model="gemini-3.5-flash",
+            model=MODEL_ID,
             contents=conversation,
             config=config,
         )
 
+        if not response.candidates:
+            print("[NO CANDIDATES] Model returned no candidates this round.")
+            return (
+                "The model returned no response (possibly a safety block). "
+                "Please rephrase and try again.",
+                conversation,
+            )
+
         reply_content = response.candidates[0].content
         parts = reply_content.parts or []
 
-        if parts and parts[0].function_call:
-            part = parts[0]
-            name = part.function_call.name
-            args = dict(part.function_call.args)
-            result = run_tool(name, args)
+        # Gemini may emit a text preamble part before the call, or several
+        # call parts in one response, so trusting parts[0] skips tools.
+        calls = [p.function_call for p in parts if p.function_call]
 
-            # Append the model's own function-call turn, then the tool's
-            # result as a function-response turn, and keep looping.
+        if calls:
+            # Append the model's own turn once - it holds all of its calls.
             conversation.append(reply_content)
-            conversation.append(
-                types.Content(
-                    role="user",
-                    parts=[types.Part.from_function_response(name=name, response=result)],
+
+            for call in calls:
+                name = call.name
+                args = dict(call.args)
+                result = run_tool(name, args)
+
+                conversation.append(
+                    types.Content(
+                        role="user",
+                        parts=[types.Part.from_function_response(name=name, response=result)],
+                    )
                 )
-            )
             continue
 
         # Robust text extraction (thinking-model safe): collect text from

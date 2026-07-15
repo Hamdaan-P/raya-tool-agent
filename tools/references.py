@@ -25,6 +25,9 @@ HADITH_URL = "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/{edi
 # edition identifier that doesn't actually exist in the dataset.
 ALLOWED_COLLECTIONS = ["bukhari", "muslim", "abudawud", "tirmidhi", "nasai", "ibnmajah"]
 
+# Human-readable labels for the language codes used in the reference string.
+LANGUAGE_LABELS = {"eng": "English", "ara": "Arabic", "urd": "Urdu"}
+
 
 def get_quran_verse(surah: int, ayah: int, translation_edition: str = "en.asad") -> dict:
     """
@@ -41,6 +44,9 @@ def get_quran_verse(surah: int, ayah: int, translation_edition: str = "en.asad")
                       "arabic", "text", "edition", "source"}
         On failure: {"success": False, "error": "<short plain-English reason>"}
     """
+    # Schema declares these as INTEGER, but coerce anyway so a float like
+    # 1.0 can never reach the URL.
+    surah, ayah = int(surah), int(ayah)
     url = QURAN_URL.format(surah=surah, ayah=ayah, translation_edition=translation_edition)
 
     try:
@@ -108,6 +114,9 @@ def get_hadith(collection: str, number: int, language: str = "eng") -> dict:
             "error": f"Unknown collection '{collection}'. Allowed: {', '.join(ALLOWED_COLLECTIONS)}",
         }
 
+    # Schema declares this as INTEGER, but coerce anyway so a float like
+    # 1.0 can never reach the URL (1.0.min.json does not exist on the CDN).
+    number = int(number)
     edition = f"{language}-{collection}"
     url = HADITH_URL.format(edition=edition, number=number)
 
@@ -128,10 +137,12 @@ def get_hadith(collection: str, number: int, language: str = "eng") -> dict:
         hadiths = payload["hadiths"]
         text = hadiths[0]["text"]
 
+        language_label = LANGUAGE_LABELS.get(language, language)
+
         return {
             "success": True,
             "type": "hadith",
-            "reference": f"{collection} (English) #{number}",
+            "reference": f"{collection} ({language_label}) #{number}",
             "text": text,
             "source": "fawazahmed0 Hadith API (community-maintained public dataset)",
         }
